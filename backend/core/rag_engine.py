@@ -17,7 +17,7 @@ class _DeterministicFallbackEmbeddings:
     """Simple deterministic embeddings used when HuggingFace models are unavailable."""
 
     def __init__(self, embedding_size: int = 768) -> None:
-        # Keep this dimension aligned with the primary HuggingFace embedding model.
+        # Keep this fallback dimension in sync with the HuggingFace embedding model (currently 768).
         self.embedding_size = embedding_size
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
