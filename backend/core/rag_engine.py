@@ -1,22 +1,42 @@
+import hashlib
 import logging
 import os
+import random
 from typing import Any, Dict, List
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 
-from core.llm_generator import LLMGenerator
+try:  # compatibilidade ao importar via "backend.core" ou diretamente de "core"
+    from backend.core.llm_generator import LLMGenerator
+except ModuleNotFoundError:  # pragma: no cover - caminho utilizado na execucao direta
+    from core.llm_generator import LLMGenerator  # type: ignore
+
+
+class _DeterministicFallbackEmbeddings:
+    """Simple deterministic embeddings used when HuggingFace models are unavailable."""
+
+    def __init__(self, embedding_size: int = 384) -> None:
+        self.embedding_size = embedding_size
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return [self._embed_text(text) for text in texts]
+
+    def embed_query(self, text: str) -> List[float]:
+        return self._embed_text(text)
+
+    def _embed_text(self, text: str) -> List[float]:
+        seed = int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest(), "big")
+        rng = random.Random(seed)
+        return [rng.uniform(-1.0, 1.0) for _ in range(self.embedding_size)]
 
 
 class RAGEngine:
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
-        # Embeddings em portugues
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-            model_kwargs={"device": "cpu"},
-        )
+        # Embeddings em portugues (com fallback deterministico offline)
+        self.embeddings = self._load_embeddings()
 
         # Vector store persistente
         persist_directory = "./data/chroma_db"
@@ -71,3 +91,22 @@ class RAGEngine:
             ).format(count=len(docs), motivo=motivo)
 
         return {"answer": answer, "sources": sources}
+
+    def _load_embeddings(self):
+        use_hf = os.getenv("RAG_ENABLE_HF_EMBEDDINGS", "0").lower() in {"1", "true", "yes"}
+        if not use_hf:
+            self.logger.info(
+                "Usando embeddings deterministicas em modo offline. Defina RAG_ENABLE_HF_EMBEDDINGS=1 para usar HuggingFace."
+            )
+            return _DeterministicFallbackEmbeddings()
+        try:
+            return HuggingFaceEmbeddings(
+                model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+                model_kwargs={"device": "cpu"},
+            )
+        except Exception as exc:  # noqa: BLE001 - fallback para execucao offline
+            self.logger.warning(
+                "Falha ao carregar embeddings HuggingFace, usando fallback deterministico: %s",
+                exc,
+            )
+            return _DeterministicFallbackEmbeddings()
