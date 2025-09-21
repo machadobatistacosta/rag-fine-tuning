@@ -57,9 +57,31 @@ class RAGEngine:
 
     def index_documents(self, chunks: List[Dict[str, str]]) -> None:
         """Indexa chunks de documentos no vectorstore."""
+        if not chunks:
+            self.logger.warning("Nenhum chunk recebido para indexacao.")
+            return
+
+        doc_id = chunks[0].get("doc_id")
+        if doc_id:
+            try:
+                # O wrapper de conveniencia do LangChain nao aceita filtros "where",
+                # entao utilizamos diretamente a collection subjacente do Chroma.
+                self.vectorstore._collection.delete(where={"doc_id": doc_id})  # type: ignore[attr-defined]
+            except Exception:  # noqa: BLE001 - queremos registrar o erro mas seguir adiante
+                self.logger.exception(
+                    "Falha ao remover vetores existentes para doc_id %s", doc_id
+                )
+        else:
+            self.logger.warning("Chunks sem doc_id; nao foi possivel limpar indices anteriores.")
+
         texts = [chunk["text"] for chunk in chunks]
         metadatas = [
-            {"source": chunk["source"], "chunk_id": idx} for idx, chunk in enumerate(chunks)
+            {
+                "source": chunk["source"],
+                "chunk_id": idx,
+                "doc_id": chunk.get("doc_id"),
+            }
+            for idx, chunk in enumerate(chunks)
         ]
 
         self.vectorstore.add_texts(texts=texts, metadatas=metadatas)
