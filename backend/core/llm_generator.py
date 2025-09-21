@@ -1,8 +1,7 @@
 """Utilities for loading a local Transformers pipeline used by the RAG engine."""
 from __future__ import annotations
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
-import os, torch
+import os
 from typing import List, Optional
 
 import torch
@@ -41,7 +40,12 @@ class LLMGenerator:
         self.prompt_template = prompt_template or DEFAULT_PROMPT
         self._pipeline: Optional[Pipeline] = None
         self._load_error: Optional[str] = None
-        self._init_pipeline()
+
+        self._llm_enabled = os.getenv("RAG_ENABLE_LLM", "0").lower() in {"1", "true", "yes"}
+        if self._llm_enabled:
+            self._init_pipeline()
+        else:
+            self._load_error = "LLM desabilitado por configuracao (RAG_ENABLE_LLM=0)."
 
     @property
     def is_ready(self) -> bool:
