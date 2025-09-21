@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import uvicorn
@@ -11,7 +12,19 @@ except ModuleNotFoundError:  # pragma: no cover - compatibilidade para execucao 
     from core.rag_engine import RAGEngine  # type: ignore
     from core.document_processor import DocumentProcessor  # type: ignore
 
-app = FastAPI(title="IA Corporativa PMEs", version="0.1.0")
+
+
+class UTF8JSONResponse(JSONResponse):
+    """Default JSON response configured to advertise UTF-8 encoding."""
+
+    media_type = "application/json; charset=utf-8"
+
+
+app = FastAPI(
+    title="IA Corporativa PMEs",
+    version="0.1.0",
+    default_response_class=UTF8JSONResponse,
+)
 
 # CORS para desenvolvimento
 app.add_middleware(
