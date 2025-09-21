@@ -33,10 +33,24 @@ class LLMGenerator:
     ) -> None:
         self.model_name = model_name or os.getenv("RAG_LLM_MODEL", "google/flan-t5-base")
         self.task = task or os.getenv("RAG_LLM_TASK", "text2text-generation")
-        self.max_new_tokens = max_new_tokens or int(os.getenv("RAG_LLM_MAX_NEW_TOKENS", "256"))
-        self.temperature = temperature or float(os.getenv("RAG_LLM_TEMPERATURE", "0.1"))
-        self.top_p = top_p or float(os.getenv("RAG_LLM_TOP_P", "0.9"))
-        self.max_context_chars = max_context_chars or int(os.getenv("RAG_LLM_MAX_CONTEXT_CHARS", "6000"))
+        self.max_new_tokens = (
+            max_new_tokens
+            if max_new_tokens is not None
+            else int(os.getenv("RAG_LLM_MAX_NEW_TOKENS", "256"))
+        )
+        self.temperature = (
+            temperature
+            if temperature is not None
+            else float(os.getenv("RAG_LLM_TEMPERATURE", "0.1"))
+        )
+        self.top_p = (
+            top_p if top_p is not None else float(os.getenv("RAG_LLM_TOP_P", "0.9"))
+        )
+        self.max_context_chars = (
+            max_context_chars
+            if max_context_chars is not None
+            else int(os.getenv("RAG_LLM_MAX_CONTEXT_CHARS", "6000"))
+        )
         self.prompt_template = prompt_template or DEFAULT_PROMPT
         self._pipeline: Optional[Pipeline] = None
         self._load_error: Optional[str] = None
