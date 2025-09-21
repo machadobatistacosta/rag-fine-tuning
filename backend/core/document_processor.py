@@ -1,5 +1,7 @@
+import hashlib
+from typing import Dict, List
+
 import fitz  # PyMuPDF
-from typing import List, Dict
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 class DocumentProcessor:
@@ -14,6 +16,8 @@ class DocumentProcessor:
     def process_document(self, content: bytes, filename: str) -> List[Dict[str, str]]:
         """Processa documento e retorna chunks"""
         text = ""
+
+        doc_id = hashlib.sha256(content).hexdigest()
         
         if filename.endswith('.pdf'):
             # Extrair texto do PDF
@@ -29,6 +33,6 @@ class DocumentProcessor:
         chunks = self.text_splitter.split_text(text)
         
         return [
-            {"text": chunk, "source": filename}
+            {"text": chunk, "source": filename, "doc_id": doc_id}
             for chunk in chunks
         ]
