@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -66,13 +68,16 @@ async def query_documents(request: QueryRequest):
 async def upload_document(file: UploadFile = File(...)):
     """Upload e indexação de novo documento"""
     try:
+        filename = file.filename or ""
+        extension = Path(filename).suffix.lower()
+
         # Validar tipo de arquivo
-        if not file.filename.endswith((".pdf", ".txt")):
+        if extension not in {".pdf", ".txt"}:
             raise HTTPException(400, "Apenas PDF e TXT são suportados")
 
         # Processar e indexar
         content = await file.read()
-        chunks = doc_processor.process_document(content, file.filename)
+        chunks = doc_processor.process_document(content, filename)
         rag_engine.index_documents(chunks)
 
         return {"status": "success", "chunks_indexed": len(chunks)}
