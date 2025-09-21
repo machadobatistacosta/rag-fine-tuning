@@ -19,7 +19,9 @@ class DocumentProcessor:
 
         doc_id = hashlib.sha256(content).hexdigest()
         
-        if filename.endswith('.pdf'):
+        normalized_filename = filename.lower()
+
+        if normalized_filename.endswith('.pdf'):
             # Extrair texto do PDF
             pdf_document = fitz.open(stream=content, filetype="pdf")
             for page in pdf_document:
