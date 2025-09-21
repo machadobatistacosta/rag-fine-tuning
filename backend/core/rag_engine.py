@@ -90,30 +90,54 @@ class RAGEngine:
     def query(self, question: str, top_k: int = 5) -> Dict[str, Any]:
         """Busca documentos relevantes e gera resposta."""
         docs = self.vectorstore.similarity_search(question, k=top_k)
+        unique_docs = self._deduplicate_documents(docs)
 
         sources = [
             {
                 "text": doc.page_content[:200] + "...",
                 "source": doc.metadata.get("source", "unknown"),
             }
-            for doc in docs
+            for doc in unique_docs
         ]
 
         if self.llm.is_ready:
             try:
-                answer = self.llm.generate(question, docs)
+                answer = self.llm.generate(question, unique_docs)
             except Exception as exc:  # noqa: BLE001 - queremos informar o erro ao usuario
                 self.logger.exception("Falha ao gerar resposta com o LLM")
                 answer = (
                     "Encontrei {count} documentos relevantes, mas o LLM falhou: {erro}."
-                ).format(count=len(docs), erro=str(exc))
+                ).format(count=len(unique_docs), erro=str(exc))
         else:
             motivo = self.llm.load_error or "modelo nao configurado"
             answer = (
                 "Encontrei {count} documentos relevantes, mas o LLM nao esta disponivel ({motivo})."
-            ).format(count=len(docs), motivo=motivo)
+            ).format(count=len(unique_docs), motivo=motivo)
 
         return {"answer": answer, "sources": sources}
+
+    def _deduplicate_documents(self, documents: List[Any]) -> List[Any]:
+        """Remove duplicated chunks while preserving the original ranking order."""
+
+        unique_documents: List[Any] = []
+        seen_keys = set()
+        for doc in documents:
+            metadata = getattr(doc, "metadata", {}) or {}
+            doc_id = metadata.get("doc_id")
+            chunk_id = metadata.get("chunk_id")
+
+            if doc_id is None and chunk_id is None:
+                key = (metadata.get("source"), getattr(doc, "page_content", ""))
+            else:
+                key = (doc_id, chunk_id)
+
+            if key in seen_keys:
+                continue
+
+            seen_keys.add(key)
+            unique_documents.append(doc)
+
+        return unique_documents
 
     def _load_embeddings(self):
         use_hf = os.getenv("RAG_ENABLE_HF_EMBEDDINGS", "0").lower() in {"1", "true", "yes"}
